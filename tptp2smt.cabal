@@ -1,0 +1,39 @@
+name: TPTPtoSMT
+version: 0.1.0.0
+synopsis: A translator from TPTP TFF to SMT-LIB
+description:
+homepage: https://github.com/aztek/TPTPtoSMT
+bug-reports: https://github.com/aztek/TPTPtoSMT/issues
+license: GPL-3
+license-file: LICENSE
+author: Evgenii Kotelnikov
+maintainer: evgeny.kotelnikov@gmail.com
+category: Language
+build-type: Simple
+extra-source-files: README.md
+cabal-version: >= 1.10
+
+source-repository head
+  type: git
+  location: git://github.com/aztek/TPTPtoSMT.git
+
+executable tptp2smt
+  hs-source-dirs: src
+  main-is: Main.hs
+  other-modules:
+    TPTPtoSMT.Pretty
+    TPTPtoSMT.Parse
+    TPTPtoSMT.Problem
+  ghc-options: -fno-warn-missing-signatures -Werror -threaded
+  -- ghc-options: -Wall -fno-warn-missing-signatures -Werror -threaded
+  if impl(ghc < 8)
+    ghc-options: -fno-warn-name-shadowing -fno-warn-orphans
+    build-depends: semigroups >= 0.18
+  if impl(ghc >= 8)
+    ghc-options: -Wno-name-shadowing -Wno-orphans
+  default-extensions: DeriveFunctor, FlexibleInstances, Safe
+  build-depends:
+    base >= 4 && < 5,
+    containers >= 0.5 && < 0.6,
+    parsec >= 3.1 && < 3.2
+  default-language: Haskell2010
