@@ -25,11 +25,12 @@ data Formula
   | App Symbol [Term]
   | Binary Connective Formula Formula
   | Negate Formula
+  | Constant Bool
 
 data Unit
-  = SortDeclaration UnitName Sort
-  | SymbolDeclaration UnitName Symbol [Sort] Sort
-  | Axiom UnitName Formula
-  | Conjecture UnitName Formula
+  = SortDeclaration Sort
+  | SymbolDeclaration Symbol [Sort] Sort
+  | Axiom Formula
+  | Conjecture Formula
 
-newtype Problem = Problem [Unit]
+newtype Problem = Problem [(UnitName, Unit)]

@@ -16,22 +16,26 @@ class ToS a where
   toS :: a -> S
 
 pretty :: Problem -> String
-pretty (Problem units) = concatMap prettyUnit units
+pretty (Problem units) = unlines (map prettyUnit units) ++ "(check-sat)"
 
-comment :: String -> S -> String
-comment comment s = "; " ++ comment ++ "\n" ++ prettyS s ++ "\n"
+prettyUnit :: (UnitName, Unit) -> String
+prettyUnit (un, u) = "; " ++ un ++ "\n" ++ prettyS (toS u) ++ "\n"
 
-prettyUnit :: Unit -> String
-prettyUnit (SortDeclaration un s) = comment un $ C [A "declare-sort", toS s, A "0"]
-prettyUnit (SymbolDeclaration un c ss s) = comment un $ C [A "declare-fun", toS c, C (map toS ss), toS s]
-prettyUnit (Axiom un f) = comment un $ C [A "assert", toS f]
-prettyUnit (Conjecture un f) = comment un $ C [A "assert", toS (Negate f)]
+instance ToS Unit where
+  toS (SortDeclaration s) = C [A "declare-sort", toS s, A "0"]
+  toS (SymbolDeclaration c ss s) = C [A "declare-fun", toS c, C (map toS ss), toS s]
+  toS (Axiom f) = C [A "assert", toS f]
+  toS (Conjecture f) = C [A "assert", toS (Negate f)]
 
 instance ToS Formula where
   toS (Distinct cs) = C (A "distinct" : map toS cs)
   toS (Quantified q vs f) = C [toS q, C (map (\(v,s) -> C [toS v, toS s]) vs), toS f]
   toS (Equality a b) = C [A "=", toS a, toS b]
+  toS (App f ts) = C $ toS f : map toS ts
   toS (Binary c a b) = C [toS c, toS a, toS b]
+  toS (Negate f) = C [A "not", toS f]
+  toS (Constant True) = A "true"
+  toS (Constant False) = A "false"
 
 instance ToS Term where
   toS (Var v) = toS v
@@ -44,6 +48,7 @@ instance ToS Variable where
   toS (Variable v) = A v
 
 instance ToS Sort where
+  toS (Sort "$o") = A "Bool"
   toS (Sort s) = A s
 
 instance ToS Quantifier where
@@ -51,6 +56,6 @@ instance ToS Quantifier where
   toS Exists = A "exists"
 
 instance ToS Connective where
-  toS Conjunction = A "&"
-  toS Disjunction = A "|"
+  toS Conjunction = A "and"
+  toS Disjunction = A "or"
   toS Equivalence = A "="

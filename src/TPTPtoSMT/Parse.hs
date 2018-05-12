@@ -14,13 +14,12 @@ import TPTPtoSMT.Problem
 
 language = emptyDef
   { Token.commentLine     = "#"
-  , Token.reservedNames   = [ "tff", "(", ")", "$tType"
+  , Token.reservedNames   = [ "tff", "$tType"
                             , "type", "axiom", "conjecture"
                             , "$true", "$false", "$distinct"
+                            , ".", "?", "!", ":"
                             ]
-  , Token.reservedOpNames = [ "&", "|", "=>", "<=>"
-                            , "?", "!", ".", "~", "'"
-                            ]
+  , Token.reservedOpNames = [ "&", "|", "<=>", "~", "=" ]
   }
 
 lexer = Token.makeTokenParser language
@@ -48,14 +47,14 @@ connective = constant "&" Conjunction
 unitName = Token.identifier lexer
 
 upperWord = do
-  fc  <- oneOf firstChar
-  r   <- optionMaybe (many $ oneOf rest)
+  fc <- oneOf firstChar
+  r  <- optionMaybe (many $ oneOf rest)
   spaces
   return $ case r of
              Nothing -> [fc]
              Just s  -> fc:s
   where firstChar = ['A'..'Z']
-        rest      = firstChar ++ ['0'..'9'] ++ ['a'..'z'] ++ "_"
+        rest      = firstChar ++ ['0'..'9'] ++ ['a'..'z'] ++ "_$"
 
 lowerWord = do
   fc  <- oneOf firstChar
@@ -65,7 +64,7 @@ lowerWord = do
              Nothing -> [fc]
              Just s  -> fc:s
   where firstChar = ['a'..'z']
-        rest      = firstChar ++ ['0'..'9'] ++ ['A'..'Z'] ++ "_"
+        rest      = firstChar ++ ['0'..'9'] ++ ['A'..'Z'] ++ "_$"
 
 singleQuoted = do
   symbol "'"
@@ -80,47 +79,49 @@ sort = Sort <$> (symbol "$o" <|> try singleQuoted <|> lowerWord)
 term = Var <$> var
    <|> Const <$> symbol'
 
+connectives = [
+  [ Infix  (reservedOp "|"   >> return (Binary Disjunction)) AssocLeft ],
+  [ Infix  (reservedOp "&"   >> return (Binary Conjunction)) AssocLeft ],
+  [ Infix  (reservedOp "<=>" >> return (Binary Equivalence)) AssocNone ],
+  [ Prefix (reservedOp "~"   >> return Negate) ]
+  ]
+
+formula :: Parser Formula
+formula = buildExpressionParser connectives arg
+
+atom = App <$> symbol' <*> parens (commaSep term)
+
 distinct = reserved "$distinct" >> Distinct <$> parens (commaSep symbol')
 
 quantified = do
   q <- quantifier
-  vs <- brackets . commaSep $ do { v <- var; reserved ":"; s <- sort; return (v, s) }
+  vs <- brackets . commaSep $ do
+    v <- var
+    reserved ":"
+    s <- sort
+    return (v, s)
+  reserved ":"
   f <- formula
   return $ Quantified q vs f
 
 equality = do
   a <- term
-  reserved "="
+  reservedOp "="
   b <- term
   return $ Equality a b
 
-binary = do
-  a <- formula
-  c <- connective
-  b <- formula
-  return $ Binary c a b
+arg = parens formula
+  <|> distinct
+  <|> quantified
+  <|> try equality
+  <|> atom
+  <|> (reservedOp "~" >> Negate <$> formula)
 
-formula = distinct
-      <|> quantified
-      <|> equality
-      <|> binary
-      <|> (reserved "~" >> Negate <$> formula)
-
-tff p = do
-  reserved "tff"
-  t <- parens p
-  symbol "."
-  return t
-
-sortDeclaration = tff $ do
-  un <- unitName
-  reserved ","
-  reserved "type"
-  reserved ","
+sortDeclaration = do
   s <- sort
   reserved ":"
   reserved "$tType"
-  return $ SortDeclaration un s
+  return $ SortDeclaration s
 
 typ = try (do ss <- parens $ sepBy sort $ symbol "*"
               reserved ">"
@@ -133,40 +134,30 @@ typ = try (do ss <- parens $ sepBy sort $ symbol "*"
   <|> try (do s <- sort
               return ([], s))
 
-symbolDeclaration = tff $ do
-  un <- unitName
-  reserved ","
-  reserved "type"
-  reserved ","
+symbolDeclaration = do
   c <- symbol'
   reserved ":"
   (ss, s) <- typ
-  return $ SymbolDeclaration un c ss s
+  return $ SymbolDeclaration c ss s
 
-axiom = tff $ do
-  un <- unitName
-  reserved ","
-  reserved "axiom"
-  reserved ","
-  f <- formula
-  return $ Axiom un f
+typedDeclaration = try sortDeclaration <|> symbolDeclaration
 
-conjecture = do
+unit = (reserved "type" >> symbol "," >> typedDeclaration)
+   <|> (reserved "axiom" >> symbol "," >> Axiom <$> formula)
+   <|> (reserved "conjecture" >> symbol "," >> Conjecture <$> formula)
+
+namedUnit = do
   reserved "tff"
-  reserved "("
-  un <- unitName
-  reserved ","
-  reserved "conjecture"
-  reserved ","
-  f <- formula
-  reserved ")"
+  (un, u) <- parens $ do
+    un <- unitName
+    symbol ","
+    u <- unit
+    return (un, u)
   reserved "."
-  return $ Conjecture un f
-
-unit = try sortDeclaration <|> try symbolDeclaration <|> try axiom <|> try conjecture
+  return (un, u)
 
 parser :: Parser Problem
-parser = Problem <$> many unit
+parser = Problem <$> many namedUnit
 
 parseTPTP :: SourceName -> String -> Either ParseError Problem
 parseTPTP = parse parser
