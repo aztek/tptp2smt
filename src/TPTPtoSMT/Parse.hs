@@ -44,6 +44,9 @@ connective = constant "&" Conjunction
          <|> constant "|" Disjunction
          <|> constant "<=>" Equivalence
 
+boolConst = constant "$true"  (Constant True)
+        <|> constant "$false" (Constant False)
+
 unitName = Token.identifier lexer
 
 upperWord = do
@@ -116,6 +119,7 @@ arg = parens formula
   <|> try equality
   <|> atom
   <|> (reservedOp "~" >> Negate <$> formula)
+  <|> boolConst
 
 sortDeclaration = do
   s <- sort
