@@ -1,6 +1,5 @@
 module Main(main) where
 
-import TPTPtoSMT.Problem
 import TPTPtoSMT.Parse
 import TPTPtoSMT.Pretty
 

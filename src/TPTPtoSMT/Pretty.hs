@@ -1,7 +1,5 @@
 module TPTPtoSMT.Pretty where
 
-import Data.List
-
 import TPTPtoSMT.Problem
 
 data S

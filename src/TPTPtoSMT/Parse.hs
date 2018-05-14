@@ -1,10 +1,9 @@
 module TPTPtoSMT.Parse where
 
-import Data.List ((\\))
 import Data.Char
+import Control.Monad
 
 import Text.Parsec
-import Text.Parsec.Prim
 import Text.Parsec.String
 import Text.Parsec.Expr
 import Text.Parsec.Language
@@ -70,9 +69,9 @@ lowerWord = do
         rest      = firstChar ++ ['0'..'9'] ++ ['A'..'Z'] ++ "_$"
 
 singleQuoted = do
-  symbol "'"
+  void (symbol "'")
   sq <- many $ oneOf $ map chr $ [32..38] ++ [40..91] ++ [93..126]
-  symbol "'"
+  void (symbol "'")
   return sq
 
 var = Variable <$> upperWord
@@ -154,7 +153,7 @@ namedUnit = do
   reserved "tff"
   (un, u) <- parens $ do
     un <- unitName
-    symbol ","
+    void (symbol ",")
     u <- unit
     return (un, u)
   reserved "."
